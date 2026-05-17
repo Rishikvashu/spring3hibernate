@@ -1,7 +1,59 @@
-@Library('codeutils@master')
+@Library('my-shared-lib') _
 
-def codeUtils = new org.opstree.java.javaCodePipeline()
+pipeline {
 
-node{
-  codeUtils.call()
+    agent any
+
+    environment {
+        JAVA_HOME = '/usr/lib/jvm/java-8-openjdk-amd64'
+        PATH = "${JAVA_HOME}/bin:${env.PATH}"
+    }
+
+    stages {
+
+        stage('Checkout') {
+
+            steps {
+
+                checkout scmGit(
+                    branches: [[name: '*/master']],
+                    userRemoteConfigs: [[url: 'https://github.com/Rishikvashu/spring3hibernate.git']]
+                )
+
+                sh 'git branch'
+            }
+        }
+
+        stage('Security Scan') {
+
+            steps {
+                gitleaksScan()
+            }
+        }
+
+        stage('Maven Lifecycle') {
+
+            steps {
+                mavenBuild()
+            }
+        }
+
+        stage('Push Changes') {
+
+            steps {
+                gitPush()
+            }
+        }
+    }
+
+    post {
+
+        always {
+
+            archiveArtifacts(
+                artifacts: 'gitleaks-report.json',
+                fingerprint: true
+            )
+        }
+    }
 }
